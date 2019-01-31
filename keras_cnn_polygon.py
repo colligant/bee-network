@@ -111,19 +111,19 @@ def concat_preds(arr_list, th=0.95):
 
 
 if __name__ == '__main__':
-    kernel_sizes = [11, 15]
+    kernel_sizes = [11, 15, 31]
     image_paths = []
     model_dir = 'models/'
     model_paths = get_model_paths(kernel_sizes, model_dir)
     path = '/home/thomas/bee-network/for_bees/bees_polygons/Frames JPG/'
     for f in glob.glob(path + "*.jpg"):
         image_paths = [f]*len(kernel_sizes)
+        print("Evaluating {}".format(image_paths[0]))
         with Pool(len(kernel_sizes)) as pool:
             results = pool.starmap(run_model, zip(kernel_sizes, model_paths, image_paths))
-        
+
         out_mask = concat_preds(results)
         out_image = cv2.imread(image_paths[0])
-
         contours = get_contours(out_mask, threshold=1)
         fig, ax = plt.subplots(ncols=1, figsize=(9, 7))
         bees = plot_contours(contours, ax)
