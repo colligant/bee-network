@@ -83,8 +83,13 @@ def plot_contours(contours, ax):
     return k
 
 def run_model(kernel_size, model_path, image_path):
-    os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
+    #os.environ["CUDA_VISIBLE_DEVICES"] = '-1'
+    from keras.backend.tensorflow_backend import set_session
     import tensorflow as tf
+    config = tf.ConfigProto()
+    config.gpu_options.per_process_gpu_memory_fraction = 0.4
+    sess = tf.Session(config=config)
+    set_session(sess)
     model = tf.keras.models.load_model(model_path)
     mask, image = eval_image_heatmap(image_path, model, kernel_size)
     return mask
@@ -100,7 +105,7 @@ def get_model_paths(kernel_sizes, base_path):
                 ls.append(model_path)
     return ls
 
-def concat_preds(arr_list, th=0.95):
+def concat_preds(arr_list, th=0.99):
 
     stack = np.zeros(arr_list[0].shape)
     for i, mask in enumerate(arr_list):
@@ -111,14 +116,16 @@ def concat_preds(arr_list, th=0.95):
 
 
 if __name__ == '__main__':
-    kernel_sizes = [11, 15, 31]
+    kernel_sizes = [11, 15]
     image_paths = []
     model_dir = 'models/'
     model_paths = get_model_paths(kernel_sizes, model_dir)
     path = '/home/thomas/bee-network/for_bees/bees_polygons/Frames JPG/'
+    i = 0
     for f in glob.glob(path + "*.jpg"):
         image_paths = [f]*len(kernel_sizes)
         print("Evaluating {}".format(image_paths[0]))
+
         with Pool(len(kernel_sizes)) as pool:
             results = pool.starmap(run_model, zip(kernel_sizes, model_paths, image_paths))
 
@@ -127,15 +134,31 @@ if __name__ == '__main__':
         contours = get_contours(out_mask, threshold=1)
         fig, ax = plt.subplots(ncols=1, figsize=(9, 7))
         bees = plot_contours(contours, ax)
-        out_mask[out_mask == 0] = np.nan
+        # out_mask[out_mask == 0] = np.nan
+        # ax.imshow(out_mask, alpha=0.5)
         ax.imshow(out_image)
-        ax.imshow(out_mask, alpha=0.5)
         ax.set_title("Prob. heatmap")
         ax.set_xticks([])
         ax.set_yticks([])
         plt.suptitle("Number of bees: {}".format(bees))
-        #plt.savefig("evaluated_images/step_size_16.png")
-        plt.show()
+        out_file = os.path.splitext(f)[0]
+        out_file = os.path.basename(out_file)
+        out = 'final_eval/{}_{}bees.png'.format(out_file, bees)
+        plt.savefig(out)
+        plt.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if __name__ != '__main__':
     import tensorflow as tf
