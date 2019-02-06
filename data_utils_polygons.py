@@ -8,7 +8,7 @@ import cv2
 from sklearn.preprocessing import StandardScaler
 from skimage.draw import polygon
 
-def not_bee_mask(image, image_mask, n_instances, box_size=2):
+def not_bee_mask(image, image_mask, n_instances, box_size=10):
     n = 0 
     instances = []
     while n <= n_instances: #ensure class balance

@@ -1,13 +1,14 @@
 import os
+import cv2
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import keras.backend as K
 import tensorflow as tf
-tf.enable_eager_execution()
 from glob import glob
 import matplotlib.pyplot as plt
 import time
-from data_utils_polygons import generate_class_mask 
+from data_utils_polygons import generate_class_mask, normalize_image
 import numpy as np
+from tqdm import tqdm
 
 NO_DATA = 3
 
@@ -26,13 +27,13 @@ def fcnn_model(image_shape, n_classes):
 
     model = tf.keras.Sequential()
     # Must define the input shape in the first layer of the neural network
-    model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=2, padding='same', activation='relu',
+    model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=8, padding='same', activation='relu',
         input_shape=image_shape, data_format='channels_last'))
-    model.add(tf.keras.layers.Conv2D(filters=128, kernel_size=2, padding='same', activation='relu'))
-    #model.add(tf.keras.layers.Conv2D(filters=256, kernel_size=2, padding='same', activation='relu'))
-    #model.add(tf.keras.layers.Conv2D(filters=512, kernel_size=2, padding='same', activation='relu'))
-    model.add(tf.keras.layers.Conv2D(filters=128, kernel_size=2, padding='same', activation='relu'))
-    model.add(tf.keras.layers.Conv2D(filters=n_classes, kernel_size=1, padding='same',
+    model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=4, padding='same', activation='relu'))
+    model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=2, padding='same', activation='relu'))
+    model.add(tf.keras.layers.Conv2D(filters=16, kernel_size=2, padding='same', activation='relu'))
+    model.add(tf.keras.layers.Dropout(0.5))
+    model.add(tf.keras.layers.Conv2D(filters=n_classes, kernel_size=2, padding='same',
         activation='softmax')) # 1x1 convolutions for pixel-wise prediciton.
     # Take a look at the model summary
     model.summary()
@@ -41,7 +42,7 @@ def fcnn_model(image_shape, n_classes):
 def create_model(image_shape, n_classes):
     model = fcnn_model(image_shape, n_classes)
     model.compile(loss=custom_objective,
-                 optimizer=tf.train.AdamOptimizer(),
+                 optimizer='adam',
                  metrics=['accuracy'])
     return model
 
@@ -53,14 +54,11 @@ def one_hot_encoding(class_mask, n_classes):
         out[:, :, i][class_mask == i] = 1
     return out
 
-def train_model(image_directory, image_shape):
+def train_model(image_directory, image_shape, epochs=5):
 
     n_classes = 2
     model = create_model(image_shape, n_classes)
-    
-    fname = None 
-    jj = None
-    for i in range(3):
+    for i in tqdm(range(epochs)):
         for f in glob(image_directory + "*.json"):
             jpg = f[:-13] + ".jpg"
             class_mask, input_image = generate_class_mask(f, jpg)
@@ -69,10 +67,6 @@ def train_model(image_directory, image_shape):
             input_image = input_image.astype(np.float32)
             class_mask[class_mask == -1] = NO_DATA 
             class_mask = class_mask.astype(np.int32)
-
-            fname = f
-            jj = jpg
-
             class_mask = one_hot_encoding(class_mask, n_classes) 
             in_class = np.zeros((1, 1080, 1920, n_classes))
             in_img = np.zeros((1, 1080, 1920, 3))
@@ -81,12 +75,14 @@ def train_model(image_directory, image_shape):
 
             model.fit(in_img, 
                      in_class,
-                     epochs=1)
-     
-    mask, im = generate_class_mask(fname, jj)
+                     epochs=1, verbose=0)
+    return model
+
+def evaluate_image(image_path, th=0.90):
+    im = cv2.imread(image_path)
+    im = normalize_image(im)
     in_img = np.zeros((1, 1080, 1920, 3))
     in_img[0, :, :, :] = im
-
     start = time.time()
     out = model.predict(in_img)
     end = time.time()
@@ -95,13 +91,26 @@ def train_model(image_directory, image_shape):
     out2 = out[0:, :, :, 1]
     out1 = np.reshape(out1, (1080, 1920))
     out2 = np.reshape(out2, (1080, 1920))
-    fig, ax = plt.subplots(ncols=2, figsize=(12, 8))
-    ax[0].imshow(out1)
-    ax[1].imshow(out2)
-    ax[1].set_title("Bee prediction")
+    out2[out2 <= th] = np.nan
+    fig, ax = plt.subplots(ncols=1, figsize=(12, 8))
+    ax.imshow(cv2.imread(image_path))
+    ax.imshow(out2)
+    ax.set_title("Bee prediction")
     plt.show()
 
 if __name__ == '__main__':
     path = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/'
     shape = (1080, 1920, 3)
-    train_model(path, shape)
+    model_path = 'models/fcnn.h5'
+    if not os.path.isfile(model_path): 
+        model = train_model(path, shape)
+        model.save(model_path)
+    else:
+        model = tf.keras.models.load_model(model_path,
+                custom_objects={'custom_objective':custom_objective})
+
+    img1 = os.path.join(path, 'Day 1 Blank VS Scented416.jpg')
+    img2 = os.path.join(path, 'Day 1 Blank VS Scented578.jpg')
+
+    for f in glob(path + "*.jpg"):
+        evaluate_image(f)
