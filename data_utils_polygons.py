@@ -1,10 +1,26 @@
-from sklearn.preprocessing import StandardScaler
+import os
 import json
-from skimage.draw import polygon
+import matplotlib.pyplot as plt
 import warnings
 import numpy as np
 import glob
 import cv2
+from sklearn.preprocessing import StandardScaler
+from skimage.draw import polygon
+
+def not_bee_mask(image, image_mask, n_instances, box_size=2):
+    n = 0 
+    instances = []
+    while n <= n_instances: #ensure class balance
+        x_rand = np.random.randint(0, image.shape[0])
+        y_rand = np.random.randint(0, image.shape[1])
+        if image_mask[x_rand, y_rand] != 1:
+            try:
+                image_mask[x_rand-box_size:x_rand+box_size+1, y_rand-box_size:y_rand+1] = 0
+                n += box_size*2 
+            except IndexError as e:
+                continue
+    return image_mask
 
 def generate_not_bees(image, image_mask, num_points, kernel_size):
     ofs = kernel_size // 2
@@ -42,11 +58,35 @@ def normalize_image(im):
         # take the mean and stddev? Probs. 
     return tmp 
 
+def generate_class_mask(f_polygons, f_image): 
+    im = cv2.imread(f_image)
+    mask = np.ones((im.shape[0], im.shape[1]))*-1
+    im = normalize_image(im) 
+    with open(f_polygons, "r") as f:
+      js = json.load(f)
+    n_instances = 0
+    for ll in js['labels']:
+      x = []
+      y = []
+      for i in ll['vertices']:
+          x.append(i['x'])
+          y.append(i['y'])
+      r, c = polygon(x, y, shape=im.shape) # row, column
+      mask[c, r] = 1
+      n_instances += len(x)
+
+    if n_instances:
+        mask = not_bee_mask(im, mask, n_instances)
+        mask[mask == -1] = False
+        return mask, im
+    else:
+        return None, None
+
 
 def generate_bees(f_polygons, f_image, kernel_size):
     # Do I want to do a pixel-wise 
     # classifier? Or, say, one training instance per bee?
-    # would an FCNN on bee images work?
+    # would a FCNN on bee images work?
     ofs = kernel_size // 2
     im = cv2.imread(f_image)
     mask = np.zeros((im.shape[0], im.shape[1]))
@@ -64,15 +104,7 @@ def generate_bees(f_polygons, f_image, kernel_size):
       instances = []
       for rr, cc in zip(r, c):
           try:
-              # import matplotlib.pyplot as plt
-              # im = cv2.imread(f_image)
-              # fig, axs = plt.subplots(ncols = 2)
-              # axs[0].plot(rr, cc, 'ro', ms=2)
-              # axs[0].imshow(im)
               sub_img = im[cc-ofs:cc+ofs+1,rr-ofs:rr+ofs+1, :]  # I think this line
-              # axs[1].imshow(sub_img)
-              # plt.show()
-              # is right. Not too sure though.
               if sub_img.shape[0] == kernel_size and sub_img.shape[1] == kernel_size:
                   instances.append(sub_img)
           except IndexError as e:
@@ -98,8 +130,6 @@ def generate_labels_and_features(path, kernel_size):
     # print(i, e.shape, ret.shape)
         ret[i, :, :, :] = e
     labels = [1]*len(bees) + [0]*len(not_bees)
-    # bizzarely we have more not_bees than bees
-    # it's a large corpus of training data. 
     labels = make_one_hot(labels, 2)
     return np.asarray(features), np.asarray(labels)
 
@@ -111,16 +141,19 @@ def make_one_hot(labels, n_classes):
     return ret
 
 
-
-
-
 if __name__ == '__main__':
     path = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/'
-    generate_labels_and_features(path, 31)  
-
-
-
-
-
-
-
+ 
+    for f in glob.glob(path + "*.json"):
+        print(f[-17:-13])
+        jpg = f[:-13] + ".jpg"
+        mask, image = generate_class_mask(f, jpg)
+        print(image.shape)
+        break
+        if mask is not None:
+            mask[mask == -1] = np.nan
+            plt.title(os.path.basename(f))
+            plt.imshow(image)
+            plt.imshow(mask, alpha=0.8)
+            plt.show()
+ 
