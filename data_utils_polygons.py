@@ -73,11 +73,12 @@ def generate_class_mask(f_polygons, f_image):
           y.append(i['y'])
       r, c = polygon(x, y, shape=im.shape) # row, column
       mask[c, r] = 1
-      n_instances += len(x)
+      n_instances += len(r)
 
-    if n_instances:
+    if n_instances > 1:
         mask = not_bee_mask(im, mask, n_instances)
-        mask[mask == -1] = False
+        # mask[mask == -1] = 
+        # print(2*n_instances, "total training points")
         return mask, im
     else:
         return None, None
