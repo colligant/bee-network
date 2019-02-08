@@ -1,0 +1,109 @@
+\documentclass[12pt]{article}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{subfig}
+\usepackage{color}
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\lstset{frame=tb,
+  language=Python,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3
+}\title{Notes on performance of various networks on bee problem}
+\author{
+	Tommy 
+}
+\date{\today}
+
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+\paragraph{Not ensuring class balance.}
+Now there are no masked ``no data'' pixels - the image is fully segmented into bee/not bee.
+This means that pixel-wise class balance is nonexistent.
+\includegraphics[width=0.5\textwidth]{example_images/class_mask.png}
+The output of the neural network is all not bee.
+
+\paragraph{Output probabilities, and negative training example size.}
+The larger boxes result in the network not outputting a p > 0.5 for any pixel in the bee category.
+Using a negative size of 1 results in probabilities in the bee category of 90$\%$. 
+To examine this issue, I trained different
+networks using different box sizes (6 of them). The results are in the figure below. The larger the
+box size, the higher probability that the negative points contain a bee. This could be dealt with 
+by segmenting not-bee parts of an image, or choosing not-bee samples more intelligently.
+
+\begin{figure}
+\centering
+\subfloat[first subfigure]{\label{sfig:a}\includegraphics[scale=0.5]{example_images/preds_vs_ground_truth_box0.png}}\hfill
+\subfloat[second subfigure]{\label{sfig:b}\includegraphics[scale=0.5]{example_images/preds_vs_ground_truth_box3.png}}\hfill
+\caption{Preliminary results.}
+\label{fig:test}
+\end{figure}
+
+I'm pretty sure the bad results with a large box size are because the random boxes are overlapping
+bees in some cases. All of the results above were obtained with a simple architecture:
+\begin{lstlisting}
+    model = tf.keras.Sequential()
+    model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=8, padding='same', activation='relu',
+        input_shape=image_shape, data_format='channels_last'))
+    model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=4, padding='same', activation='relu'))
+    model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=4, padding='same', activation='relu'))
+    model.add(tf.keras.layers.Conv2D(filters=16, kernel_size=2, padding='same', activation='relu'))
+    model.add(tf.keras.layers.Dropout(0.5))
+    model.add(tf.keras.layers.Conv2D(filters=n_classes, kernel_size=2, padding='same',
+        activation='softmax'))
+\end{lstlisting}
+The results from generating negative samples where the is no bee in the negative sample are below.
+
+\begin{figure}
+\centering
+\subfloat[first
+subfigure]{\label{sfig:a}\includegraphics[width=.18\textwidth,height=2cm]{example_images/preds_vs_ground_truth_smart_box0.png}}\hfill
+\subfloat[second
+subfigure]{\label{sfig:b}\includegraphics[width=.18\textwidth,height=2cm]{example_images/preds_vs_ground_truth_smart_box3.png}}\hfill
+\subfloat[third
+subfigure]{\label{sfig:c}\includegraphics[width=.18\textwidth,height=2cm]{example_images/preds_vs_ground_truth_smart_box6.png}}\hfill
+\subfloat[fourth
+subfigure]{\label{sfig:d}\includegraphics[width=.18\textwidth,height=2cm]{example_images/preds_vs_ground_truth_smart_box9.png}}\hfill
+\subfloat[fifth
+subfigure]{\label{sfig:e}\includegraphics[width=.18\textwidth,height=2cm]{example_images/preds_vs_ground_truth_smart_box12.png}}\\
+\subfloat[sixth
+subfigure]{\label{sfig:f}\includegraphics[width=.18\textwidth,height=2cm]{example_images/preds_vs_ground_truth_smart_box15.png}}\hfill
+\subfloat[seventh
+subfigure]{\label{sfig:g}\includegraphics[width=.18\textwidth,height=2cm]{example_images/preds_vs_ground_truth_smart_box18.png}}\hfill
+\subfloat[eighth
+subfigure]{\label{sfig:h}\includegraphics[width=.18\textwidth,height=2cm]{example_images/preds_vs_ground_truth_smart_box20.png}}\hfill
+\subfloat[ninth
+subfigure]{\label{sfig:i}\includegraphics[width=.18\textwidth,height=2cm]{example_images/preds_vs_ground_truth_smart_box23.png}}\hfill
+\subfloat[tenth
+subfigure]{\label{sfig:j}\includegraphics[width=.18\textwidth,height=2cm]{example_images/preds_vs_ground_truth_smart_box29.png}}\\
+\caption{Preliminary results.}
+\label{fig:test}
+\end{figure}
+
+
+\section{Model experimentation}
+
+
+
+
+
+
+\end{document}
+
+

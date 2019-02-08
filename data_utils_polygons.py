@@ -14,7 +14,8 @@ def not_bee_mask(image, image_mask, n_instances, box_size):
     while n <= n_instances: #ensure class balance
         x_rand = np.random.randint(box_size, image.shape[0]-box_size)
         y_rand = np.random.randint(box_size, image.shape[1]-box_size)
-        if image_mask[x_rand, y_rand] != 1: # TODO: Make sure the neighborhood is not a bee.
+        box = image_mask[x_rand-box_size:x_rand+box_size, y_rand-box_size:y_rand+box_size]
+        if not np.any(box == 1): 
             try:
                 if box_size == 0:
                     image_mask[x_rand, y_rand] = 0

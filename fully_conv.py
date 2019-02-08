@@ -2,12 +2,13 @@ import os
 import cv2
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import keras.backend as K
+import matplotlib.pyplot as plt
+import numpy as np
+import time
 import tensorflow as tf
 from glob import glob
-import matplotlib.pyplot as plt
-import time
 from data_utils_polygons import generate_class_mask, normalize_image
-import numpy as np
+from tensorflow.keras.layers import Conv2D, Input
 
 NO_DATA = 3
 
@@ -21,6 +22,10 @@ def custom_objective(y_true, y_pred):
     y_true_mask = tf.boolean_mask(y_true, masked)
     y_pred_mask = tf.boolean_mask(y_pred, masked)
     return tf.keras.losses.binary_crossentropy(y_true_mask, y_pred_mask)
+
+def fcnn_functional(image_shape, n_classes):
+    x = Input(image_shape)
+    pass
 
 def fcnn_model(image_shape, n_classes):
 
@@ -94,8 +99,10 @@ if __name__ == '__main__':
     path = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/'
     shape = (1080, 1920, 3)
 
-    for bs in range(20, 33, 3):
-        model_path = 'models/fcnn_bs{}.h5'.format(bs)
+
+    b=[23, 26]
+    for bs in b:
+        model_path = 'models/fcnn_smart_bs{}.h5'.format(bs)
         if not os.path.isfile(model_path): 
             model = train_model(path, shape, bs)
             model.save(model_path)
@@ -114,5 +121,5 @@ if __name__ == '__main__':
         ax[0].imshow(predictions)
         ax[0].set_title("Preds, box_size={}, acc={:.3f}".format(bs, acc))
         ax[1].imshow(cv2.imread(gt))
-        plt.savefig("example_images/preds_vs_ground_truth_box{}.png".format(bs), bbox_inches='tight')
+        plt.savefig("example_images/preds_vs_ground_truth_smart_box{}.png".format(bs), bbox_inches='tight')
         plt.show()
