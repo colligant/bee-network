@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import time
 from data_utils_polygons import generate_class_mask, normalize_image
 import numpy as np
-from tqdm import tqdm
 
 NO_DATA = 3
 
@@ -30,7 +29,7 @@ def fcnn_model(image_shape, n_classes):
     model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=8, padding='same', activation='relu',
         input_shape=image_shape, data_format='channels_last'))
     model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=4, padding='same', activation='relu'))
-    model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=2, padding='same', activation='relu'))
+    model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=4, padding='same', activation='relu'))
     model.add(tf.keras.layers.Conv2D(filters=16, kernel_size=2, padding='same', activation='relu'))
     model.add(tf.keras.layers.Dropout(0.5))
     model.add(tf.keras.layers.Conv2D(filters=n_classes, kernel_size=2, padding='same',
@@ -54,14 +53,14 @@ def one_hot_encoding(class_mask, n_classes):
         out[:, :, i][class_mask == i] = 1
     return out
 
-def train_model(image_directory, image_shape, epochs=5):
-
+def train_model(image_directory, image_shape, box_size, epochs=3):
     n_classes = 2
     model = create_model(image_shape, n_classes)
-    for i in tqdm(range(epochs)):
+    for i in range(epochs):
+        print("Epoch:", i)
         for f in glob(image_directory + "*.json"):
             jpg = f[:-13] + ".jpg"
-            class_mask, input_image = generate_class_mask(f, jpg)
+            class_mask, input_image = generate_class_mask(f, jpg, box_size=bs)
             if class_mask is None:
                 continue
             input_image = input_image.astype(np.float32)
@@ -72,13 +71,12 @@ def train_model(image_directory, image_shape, epochs=5):
             in_img = np.zeros((1, 1080, 1920, 3))
             in_class[0, :, :, :] = class_mask
             in_img[0, :, :, :] = input_image
-
             model.fit(in_img, 
                      in_class,
-                     epochs=1, verbose=0)
+                     epochs=1, verbose=1)
     return model
 
-def evaluate_image(image_path, th=0.90):
+def evaluate_image(image_path, th=0.1):
     im = cv2.imread(image_path)
     im = normalize_image(im)
     in_img = np.zeros((1, 1080, 1920, 3))
@@ -87,30 +85,34 @@ def evaluate_image(image_path, th=0.90):
     out = model.predict(in_img)
     end = time.time()
     print("T_pred:", end-start)
-    out1 = out[0:, :, :, 0]
-    out2 = out[0:, :, :, 1]
-    out1 = np.reshape(out1, (1080, 1920))
-    out2 = np.reshape(out2, (1080, 1920))
-    out2[out2 <= th] = np.nan
-    fig, ax = plt.subplots(ncols=1, figsize=(12, 8))
-    ax.imshow(cv2.imread(image_path))
-    ax.imshow(out2)
-    ax.set_title("Bee prediction")
-    plt.show()
+    out = out[0:, :, :, :]
+    out = np.argmax(out, axis=3)
+    out = np.reshape(out, (1080, 1920))
+    return out
 
 if __name__ == '__main__':
     path = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/'
     shape = (1080, 1920, 3)
-    model_path = 'models/fcnn.h5'
-    if not os.path.isfile(model_path): 
-        model = train_model(path, shape)
-        model.save(model_path)
-    else:
-        model = tf.keras.models.load_model(model_path,
-                custom_objects={'custom_objective':custom_objective})
 
-    img1 = os.path.join(path, 'Day 1 Blank VS Scented416.jpg')
-    img2 = os.path.join(path, 'Day 1 Blank VS Scented578.jpg')
+    for bs in range(0, 20, 3):
+        model_path = 'models/fcnn_bs{}.h5'.format(bs)
+        if not os.path.isfile(model_path): 
+            model = train_model(path, shape, bs)
+            model.save(model_path)
+        else:
+            model = tf.keras.models.load_model(model_path,
+                    custom_objects={'custom_objective':custom_objective})
 
-    for f in glob(path + "*.jpg"):
-        evaluate_image(f)
+        gt = 'ground_truth.jpg'
+        json = 'ground_truth_labels.json'
+        class_mask, in_img = generate_class_mask(json, gt)
+        class_mask[class_mask == -1] = 0
+        predictions = evaluate_image(gt)
+        num = len(class_mask[class_mask == predictions])
+        acc = num / (1080*1920)
+        fig, ax = plt.subplots(ncols=2, figsize=(12, 8))
+        ax[0].imshow(predictions)
+        ax[0].set_title("Preds, box_size={}, acc={:.3f}".format(bs, acc))
+        ax[1].imshow(cv2.imread(gt))
+        plt.savefig("preds_vs_ground_truth_box{}.png".format(bs))
+        plt.show()

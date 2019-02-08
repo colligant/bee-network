@@ -8,16 +8,21 @@ import cv2
 from sklearn.preprocessing import StandardScaler
 from skimage.draw import polygon
 
-def not_bee_mask(image, image_mask, n_instances, box_size=10):
+def not_bee_mask(image, image_mask, n_instances, box_size):
     n = 0 
     instances = []
     while n <= n_instances: #ensure class balance
-        x_rand = np.random.randint(0, image.shape[0])
-        y_rand = np.random.randint(0, image.shape[1])
-        if image_mask[x_rand, y_rand] != 1:
+        x_rand = np.random.randint(box_size, image.shape[0]-box_size)
+        y_rand = np.random.randint(box_size, image.shape[1]-box_size)
+        if image_mask[x_rand, y_rand] != 1: # TODO: Make sure the neighborhood is not a bee.
             try:
-                image_mask[x_rand-box_size:x_rand+box_size+1, y_rand-box_size:y_rand+1] = 0
-                n += box_size*2 
+                if box_size == 0:
+                    image_mask[x_rand, y_rand] = 0
+                    n += 1
+                else:
+                    image_mask[x_rand-box_size:x_rand+box_size,
+                        y_rand-box_size:y_rand+box_size] = 0
+                    n += box_size*2 
             except IndexError as e:
                 continue
     return image_mask
@@ -58,7 +63,7 @@ def normalize_image(im):
         # take the mean and stddev? Probs. 
     return tmp 
 
-def generate_class_mask(f_polygons, f_image): 
+def generate_class_mask(f_polygons, f_image, box_size=0): 
     im = cv2.imread(f_image)
     mask = np.ones((im.shape[0], im.shape[1]))*-1
     im = normalize_image(im) 
@@ -76,7 +81,8 @@ def generate_class_mask(f_polygons, f_image):
       n_instances += len(r)
 
     if n_instances > 1:
-        mask = not_bee_mask(im, mask, n_instances)
+        mask = not_bee_mask(im, mask, n_instances=n_instances, box_size=box_size)
+        #mask[mask == -1] = 0
         # mask[mask == -1] = 
         # print(2*n_instances, "total training points")
         return mask, im
