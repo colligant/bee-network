@@ -94,7 +94,7 @@ if __name__ == '__main__':
     path = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/'
     shape = (1080, 1920, 3)
 
-    for bs in range(0, 20, 3):
+    for bs in range(20, 33, 3):
         model_path = 'models/fcnn_bs{}.h5'.format(bs)
         if not os.path.isfile(model_path): 
             model = train_model(path, shape, bs)
@@ -114,5 +114,5 @@ if __name__ == '__main__':
         ax[0].imshow(predictions)
         ax[0].set_title("Preds, box_size={}, acc={:.3f}".format(bs, acc))
         ax[1].imshow(cv2.imread(gt))
-        plt.savefig("preds_vs_ground_truth_box{}.png".format(bs))
+        plt.savefig("example_images/preds_vs_ground_truth_box{}.png".format(bs), bbox_inches='tight')
         plt.show()
