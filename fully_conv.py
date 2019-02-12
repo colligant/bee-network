@@ -7,14 +7,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 import tensorflow as tf
-#tf.enable_eager_execution()
 from glob import glob
 from data_utils_polygons import generate_class_mask, normalize_image
 from skimage import transform, util
 from tensorflow.keras.layers import (Conv2D, Input, MaxPooling2D, Conv2DTranspose, 
 Concatenate, Dropout, UpSampling2D)
 from tensorflow.keras.models import Model
-from keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import TensorBoard
 
 NO_DATA = 3
 concatenate=Concatenate
@@ -79,46 +78,48 @@ def custom_objective(y_true, y_pred):
     return tf.keras.losses.binary_crossentropy(y_true_mask, y_pred_mask)
 
 def fcnn_functional(image_shape, n_classes):
+
     x = Input(image_shape)
 
     c1 = Conv2D(filters=32, kernel_size=(3,3), activation='relu', padding='same')(x)
+    c1 = Conv2D(filters=32, kernel_size=(3,3), activation='relu', padding='same')(c1)
     mp1 = MaxPooling2D(pool_size=2, strides=(2, 2))(c1)
 
     c2 = Conv2D(filters=64, kernel_size=(3,3), activation='relu', padding='same')(mp1)
+    c2 = Conv2D(filters=64, kernel_size=(3,3), activation='relu', padding='same')(c2)
     mp2 = MaxPooling2D(pool_size=2, strides=(2, 2))(c2)
     mp2 = Dropout(0.5)(mp2)
 
     c3 = Conv2D(filters=128, kernel_size=(3,3), activation='relu', padding='same')(mp2)
+    c3 = Conv2D(filters=128, kernel_size=(3,3), activation='relu', padding='same')(c3)
     mp3 = MaxPooling2D(pool_size=2, strides=(2, 2))(c3)
     
     last_conv = Conv2D(filters=256, kernel_size=(3,3), activation='relu', padding='same')(mp3)
 
-    u1 = Conv2DTranspose(filters=256, kernel_size=(3, 3), strides=(2, 2))(last_conv)
-    u1 = Conv2D(filters=256, kernel_size=(3,3), activation='relu', padding='same')(u1)
+    u1 = UpSampling2D(size=(2, 2))(last_conv)
+    u1 = Conv2D(filters=128, kernel_size=(3,3), activation='relu', padding='same')(u1)
+    u1 = Conv2D(filters=128, kernel_size=(3,3), activation='relu', padding='same')(u1)
 
-    c3_pad = tf.keras.layers.ZeroPadding2D(((0, 1), (0, 1)))(c3)
-    u1_c3 = Concatenate()([c3_pad, u1])
+    u1_c3 = Concatenate()([c3, u1])
 
-    u2 = Conv2D(filters=64, kernel_size=(3,3), activation='relu', padding='same')(u1_c3)
-    u2 = Conv2DTranspose(filters=128, kernel_size=(3, 3), strides=(2, 2))(u2)
+    u2 = Conv2D(filters=128, kernel_size=(3,3), activation='relu', padding='same')(u1_c3)
+    u2 = UpSampling2D(size=(2, 2))(u2)
     u2 = Conv2D(filters=64, kernel_size=(3, 3), activation='relu', padding='same')(u2)
+    u2 = Conv2D(filters=64, kernel_size=(3, 3), activation='relu', padding='same')(u2)
+    u2 = Dropout(0.5)(u2)
 
-    c2_pad = tf.keras.layers.ZeroPadding2D(((0, 3), (0, 3)))(c2)
-    u2_c2 = Concatenate()([u2, c2_pad])
+    u2_c2 = Concatenate()([u2, c2])
     u2_c2 = Dropout(0.5)(u2_c2)
 
     c4 = Conv2D(filters=32, kernel_size=(3,3), activation='relu', padding='same')(u2_c2)
-    u3 = Conv2DTranspose(filters=64, kernel_size=(3, 3), strides=(2, 2))(c4)
+    u3 = UpSampling2D(size=(2, 2))(c4)
     u3 = Conv2D(filters=32, kernel_size=(3,3), activation='relu', padding='same')(u3)
 
-    c1_pad = tf.keras.layers.ZeroPadding2D(((0, 7), (0, 7)))(c1)
-    u3_c1 = Concatenate()([u3, c1_pad])
+    u3_c1 = Concatenate()([u3, c1])
 
-    c4 = Conv2D(filters=n_classes, kernel_size=(3,3), activation='softmax', padding='same')(u3_c1)
+    c5 = Conv2D(filters=n_classes, kernel_size=(3,3), activation='softmax', padding='same')(u3_c1)
 
-    c4 = tf.keras.layers.Cropping2D(cropping=((0, 7), (0, 7)))(c4)
-
-    model = Model(inputs=x, outputs=c4) 
+    model = Model(inputs=x, outputs=c5) 
     model.summary()
     return model
 
@@ -157,7 +158,7 @@ def h_flip(image):
     return image[:, ::-1]
 
 def augment_data(image, class_mask):
-    '''Randomly augments an image in a given way.'''
+    '''Randomly augments an image.'''
     if np.random.randint(2):
         deg = np.random.uniform(-25, 25)
         image = rotation(image, deg)
@@ -167,6 +168,9 @@ def augment_data(image, class_mask):
     if np.random.randint(2):
         image = h_flip(image)
         class_mask = h_flip(class_mask)
+    if np.random.randint(2):
+        image = np.flipud(image)
+        class_mask = np.flipud(class_mask)
     return image, class_mask
 
 def preprocess_training_data(image, class_mask, n_classes=2):
@@ -183,38 +187,44 @@ def preprocess_training_data(image, class_mask, n_classes=2):
 
     return in_img, in_class
 
+
+def generate(image_directory, box_size):
+    while True:
+        for f in glob(image_directory + "*.json"):
+            jpg = f[:-13] + ".jpg"
+            class_mask, input_image = generate_class_mask(f, jpg, box_size=box_size)
+            if class_mask is None:
+                continue
+            if np.random.randint(2): 
+                input_image, class_mask = augment_data(input_image, class_mask)
+
+            X, y = preprocess_training_data(input_image, class_mask)
+
+            yield X, y
+
 def create_model(image_shape, n_classes):
     model = fcnn_functional(image_shape, n_classes)
     #model = unet()
     model.compile(loss=custom_objective,
                  optimizer='adam', 
                  metrics=['accuracy'])
-
     return model
 
-def train_model(image_directory, image_shape, box_size, epochs=15):
+def train_model(train_directory, test_directory, image_shape, box_size=6, epochs=15):
     n_classes = 2
     model = create_model(image_shape, n_classes)
     tb = TensorBoard(log_dir='graphs/')
     n_augmented = 0
-    for i in range(epochs):
-        print("Epoch:", i)
-        for j, f in enumerate(glob(image_directory + "*.json")):
-            jpg = f[:-13] + ".jpg"
-            class_mask, input_image = generate_class_mask(f, jpg, box_size=box_size)
-            if class_mask is None:
-                continue
-            if np.random.randint(2): 
-                print("Augmenting data")
-                input_image, class_mask = augment_data(input_image, class_mask)
-                # fig, axs = plt.subplots(ncols=2)
-                # axs[0].imshow(input_image)
-                # axs[1].imshow(class_mask)
-                # plt.show()
-
-            in_img, in_class = preprocess_training_data(input_image, class_mask)
-            model.fit(in_img, in_class, epochs=1, verbose=1)
-
+    train_generator = generate(train_directory, box_size)
+    test_generator = generate(test_directory, box_size)
+    model.fit_generator(train_generator, 
+            steps_per_epoch=50, 
+            epochs=epochs,
+            verbose=1,
+            callbacks=[tb],
+            validation_data=test_generator,
+            validation_steps=4,
+            use_multiprocessing=True)
     return model
 
 def evaluate_image(image_path, model, th=0.1):
@@ -231,22 +241,6 @@ def evaluate_image(image_path, model, th=0.1):
     out = np.reshape(out, (1080, 1920))
     return out
 
-def heatmap(image_path, model, th=0.6):
-    im = cv2.imread(image_path)
-    im = normalize_image(im)
-    in_img = np.zeros((1, 1080, 1920, 3))
-    in_img[0, :, :, :] = im
-    start = time.time()
-    out = model.predict(in_img)
-    end = time.time()
-    print("T_pred:", end-start)
-    out = out[0:, :, :, :]
-    #out = np.argmax(out, axis=3)
-    out = out[:, :, 1]
-    out = np.reshape(out, (1080, 1920))
-    return out
-
-
 def compute_iou(y_pred, y_true):
      ''' This is slow. '''
      y_pred = y_pred.flatten()
@@ -260,31 +254,45 @@ def compute_iou(y_pred, y_true):
      IoU = intersection / union.astype(np.float32)
      return np.mean(IoU)
 
+def gt_iou(test_directory, model):
+
+    avg = 0
+    i = 0
+    for f in glob(test_directory + "*.json"):
+        jpg = f[:-13] + ".jpg"
+        try:
+            class_mask, input_image = generate_class_mask(f, jpg)
+        except AttributeError as e:
+            print(jpg, f)
+            continue
+        if class_mask is None:
+            continue
+        class_mask[class_mask == -1] = 0
+        predictions = evaluate_image(jpg, model) 
+        iou = compute_iou(predictions, class_mask)
+        fig, ax = plt.subplots(ncols=2, figsize=(12, 8))
+        ax[0].imshow(predictions)
+        ax[0].set_title("Preds, box_size={}, IoU={:.3f}".format(box_size, iou))
+        ax[1].imshow(cv2.imread(jpg))
+        plt.show()
+        avg += iou
+        i+=1
+    return avg / i
+
 if __name__ == '__main__':
     from sklearn.metrics import confusion_matrix
-    path = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/'
+    train = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/'
+    test = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/ground_truth/'
     shape = (1080, 1920, 3)
     box_size = 10 
     model_path = 'models/fcnn_functional.h5'
-
-    if not os.path.isfile(model_path): 
-        model = train_model(path, shape, box_size)
+    epochs = 16
+    if os.path.isfile(model_path): 
+        model = train_model(train, test, shape, box_size, epochs=epochs)
         model.save(model_path)
     else:
         model = tf.keras.models.load_model(model_path,
                 custom_objects={'custom_objective':custom_objective})
 
-    gt = 'ground_truth.jpg'
-    json = 'ground_truth_labels.json'
-    class_mask, in_img = generate_class_mask(json, gt)
-    class_mask[class_mask == -1] = 0
-    predictions = evaluate_image(gt, model)
-    iou = compute_iou(predictions, class_mask)
-    print("IoU: {}".format(iou))
-    fig, ax = plt.subplots(ncols=2, figsize=(12, 8))
-    #hmap = heatmap(gt, model)
-    ax[0].imshow(predictions)
-    ax[0].set_title("Preds, box_size={}, IoU={:.3f}".format(box_size, iou))
-    ax[1].imshow(cv2.imread(gt))
-    #plt.savefig("example_images/preds_vs_ground_truth_box_size{}.png".format(box_size), bbox_inches='tight')
-    plt.show()
+    avg = gt_iou(test, model)
+    print("Avg. IoU: {:.3f}".format(avg))
