@@ -8,7 +8,7 @@ import numpy as np
 import time
 import tensorflow as tf
 from glob import glob
-from data_utils_polygons import generate_class_mask, normalize_image
+from data_utils_polygons import generate_class_mask, normalize_image, make_bee_squares
 from skimage import transform, util
 from tensorflow.keras.layers import (Conv2D, Input, MaxPooling2D, Conv2DTranspose, 
 Concatenate, Dropout, UpSampling2D)
@@ -16,56 +16,6 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import TensorBoard
 
 NO_DATA = 3
-concatenate=Concatenate
-def unet(input_size = (1080, 1920, 3)):
-    inputs = Input(input_size)
-    reshaped = tf.keras.layers.Cropping2D(cropping=((0, 8), (0, 0)))(inputs)
-    conv1 = Conv2D(16, 3, activation = 'relu', padding = 'same', kernel_initializer =
-            'he_normal')(reshaped)
-    conv1 = Conv2D(16, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv1)
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-    conv2 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool1)
-    conv2 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv2)
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-    conv3 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool2)
-    conv3 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv3)
-    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
-    conv4 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool3)
-    conv4 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv4)
-    drop4 = Dropout(0.5)(conv4)
-    pool4 = MaxPooling2D(pool_size=(2, 2))(drop4)
-
-    conv5 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(pool4)
-    conv5 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv5)
-    drop5 = Dropout(0.5)(conv5)
-
-    up6 = Conv2D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(drop5))
-    merge6 = concatenate()([drop4,up6])
-    conv6 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
-    conv6 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv6)
-
-    up7 = Conv2D(32, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv6))
-    merge7 = concatenate()([conv3,up7])
-    conv7 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
-    conv7 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv7)
-
-    up8 = Conv2D(32, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv7))
-    merge8 = concatenate()([conv2,up8])
-    conv8 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
-    conv8 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv8)
-
-    up9 = Conv2D(32, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv8))
-    merge9 = concatenate()([conv1,up9])
-    conv9 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
-    conv9 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
-    conv9 = Conv2D(32, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
-    conv10 = Conv2D(filters=2, kernel_size=1, activation = 'sigmoid')(conv9)
-    out = tf.keras.layers.ZeroPadding2D(((0, 8), (0, 0)))(conv10)
-    model = Model(inputs=inputs, outputs=out)
-    #model.summary()
-
-    return model 
-
 def custom_objective(y_true, y_pred):
     '''I want to mask all values that 
        are not data, given a y_true 
@@ -88,7 +38,6 @@ def fcnn_functional(image_shape, n_classes):
     c2 = Conv2D(filters=64, kernel_size=(3,3), activation='relu', padding='same')(mp1)
     c2 = Conv2D(filters=64, kernel_size=(3,3), activation='relu', padding='same')(c2)
     mp2 = MaxPooling2D(pool_size=2, strides=(2, 2))(c2)
-    mp2 = Dropout(0.5)(mp2)
 
     c3 = Conv2D(filters=128, kernel_size=(3,3), activation='relu', padding='same')(mp2)
     c3 = Conv2D(filters=128, kernel_size=(3,3), activation='relu', padding='same')(c3)
@@ -106,10 +55,8 @@ def fcnn_functional(image_shape, n_classes):
     u2 = UpSampling2D(size=(2, 2))(u2)
     u2 = Conv2D(filters=64, kernel_size=(3, 3), activation='relu', padding='same')(u2)
     u2 = Conv2D(filters=64, kernel_size=(3, 3), activation='relu', padding='same')(u2)
-    u2 = Dropout(0.5)(u2)
 
     u2_c2 = Concatenate()([u2, c2])
-    u2_c2 = Dropout(0.5)(u2_c2)
 
     c4 = Conv2D(filters=32, kernel_size=(3,3), activation='relu', padding='same')(u2_c2)
     u3 = UpSampling2D(size=(2, 2))(c4)
@@ -120,23 +67,20 @@ def fcnn_functional(image_shape, n_classes):
     c5 = Conv2D(filters=n_classes, kernel_size=(3,3), activation='softmax', padding='same')(u3_c1)
 
     model = Model(inputs=x, outputs=c5) 
-    model.summary()
     return model
 
 
 def fcnn_model(image_shape, n_classes):
     model = tf.keras.Sequential()
     # Must define the input shape in the first layer of the neural network
-    model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=8, padding='same', activation='relu',
+    model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=3, padding='same', activation='relu',
         input_shape=image_shape, data_format='channels_last'))
-    model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=4, padding='same', activation='relu'))
-    model.add(tf.keras.layers.Conv2D(filters=32, kernel_size=4, padding='same', activation='relu'))
-    model.add(tf.keras.layers.Conv2D(filters=16, kernel_size=2, padding='same', activation='relu'))
-    model.add(tf.keras.layers.Dropout(0.5))
+    model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
+    model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
     model.add(tf.keras.layers.Conv2D(filters=n_classes, kernel_size=2, padding='same',
-        activation='softmax')) # 1x1 convolutions for pixel-wise prediciton.
+        activation='sigmoid')) # 1x1 convolutions for pixel-wise prediciton.
     # Take a look at the model summary
-    model.summary()
     return model
 
 
@@ -189,30 +133,42 @@ def preprocess_training_data(image, class_mask, n_classes=2):
 
 
 def generate(image_directory, box_size):
+    from random import shuffle
     while True:
-        for f in glob(image_directory + "*.json"):
+        fnames = [f for f in glob(image_directory + "*.json")]
+        shuffle(fnames)
+        for f in fnames:
+            #shuffle this data
             jpg = f[:-13] + ".jpg"
-            class_mask, input_image = generate_class_mask(f, jpg, box_size=box_size)
-            if class_mask is None:
+            outa = []
+            outb = []
+            batch_size = 100
+            i = 0
+            for data, mask in make_bee_squares(f, jpg):
+                # X = np.expand_dims(input_image, axis=0)
+                # y = np.expand_dims(class_mask, axis=0)
+                if i < batch_size:
+                    outa.append(data)
+                    outb.append(mask)
+                    i += 1
+                if i == batch_size:
+                    break
+            if not len(outa):
                 continue
-            if np.random.randint(2): 
-                input_image, class_mask = augment_data(input_image, class_mask)
+            yield np.asarray(outa), np.asarray(outb)
 
-            X, y = preprocess_training_data(input_image, class_mask)
 
-            yield X, y
-
-def create_model(image_shape, n_classes):
-    model = fcnn_functional(image_shape, n_classes)
+def create_model(image_shape, n_classes, learning_rate=1e-6):
+    model = fcnn_model(image_shape, n_classes)
     #model = unet()
-    model.compile(loss=custom_objective,
-                 optimizer='adam', 
+    model.compile(loss='binary_crossentropy',
+                 optimizer=tf.train.AdamOptimizer(learning_rate=learning_rate),
                  metrics=['accuracy'])
     return model
 
-def train_model(train_directory, test_directory, image_shape, box_size=6, epochs=15):
+def train_model(train_directory, test_directory, learning_rate, image_shape, box_size=6, epochs=15):
     n_classes = 2
-    model = create_model(image_shape, n_classes)
+    model = create_model(image_shape, n_classes, learning_rate)
     tb = TensorBoard(log_dir='graphs/')
     n_augmented = 0
     train_generator = generate(train_directory, box_size)
@@ -222,8 +178,6 @@ def train_model(train_directory, test_directory, image_shape, box_size=6, epochs
             epochs=epochs,
             verbose=1,
             callbacks=[tb],
-            validation_data=test_generator,
-            validation_steps=4,
             use_multiprocessing=True)
     return model
 
@@ -237,62 +191,27 @@ def evaluate_image(image_path, model, th=0.1):
     end = time.time()
     print("T_pred:", end-start)
     out = out[0:, :, :, :]
-    out = np.argmax(out, axis=3)
-    out = np.reshape(out, (1080, 1920))
+    out = np.reshape(out, (1080, 1920, 2))
     return out
-
-def compute_iou(y_pred, y_true):
-     ''' This is slow. '''
-     y_pred = y_pred.flatten()
-     y_true = y_true.flatten()
-     current = confusion_matrix(y_true, y_pred, labels=[0, 1])
-     # compute mean iou
-     intersection = np.diag(current)
-     ground_truth_set = current.sum(axis=1)
-     predicted_set = current.sum(axis=0)
-     union = ground_truth_set + predicted_set - intersection
-     IoU = intersection / union.astype(np.float32)
-     return np.mean(IoU)
-
-def gt_iou(test_directory, model):
-
-    avg = 0
-    i = 0
-    for f in glob(test_directory + "*.json"):
-        jpg = f[:-13] + ".jpg"
-        try:
-            class_mask, input_image = generate_class_mask(f, jpg)
-        except AttributeError as e:
-            print(jpg, f)
-            continue
-        if class_mask is None:
-            continue
-        class_mask[class_mask == -1] = 0
-        predictions = evaluate_image(jpg, model) 
-        iou = compute_iou(predictions, class_mask)
-        fig, ax = plt.subplots(ncols=2, figsize=(12, 8))
-        ax[0].imshow(predictions)
-        ax[0].set_title("Preds, box_size={}, IoU={:.3f}".format(box_size, iou))
-        ax[1].imshow(cv2.imread(jpg))
-        plt.show()
-        avg += iou
-        i+=1
-    return avg / i
 
 if __name__ == '__main__':
     from sklearn.metrics import confusion_matrix
     train = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/'
     test = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/ground_truth/'
-    shape = (1080, 1920, 3)
+    shape = (None, None, 3)
     box_size = 10 
     model_path = 'models/fcnn_functional.h5'
-    epochs = 16
+    epochs = 100 
+    lr = 1e-3
     if os.path.isfile(model_path): 
-        model = train_model(train, test, shape, box_size, epochs=epochs)
+        model = train_model(train, test, lr, shape, box_size, epochs=epochs)
         model.save(model_path)
     else:
         model = tf.keras.models.load_model(model_path,
                 custom_objects={'custom_objective':custom_objective})
-
-    avg = gt_iou(test, model)
-    print("Avg. IoU: {:.3f}".format(avg))
+    
+    for f in glob(test + "*.jpg"):
+        out = evaluate_image(f, model)
+        plt.imshow(out[:, :, 1])
+        plt.colorbar()
+        plt.show()

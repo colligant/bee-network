@@ -60,8 +60,6 @@ def normalize_image(im):
         scaler3 = StandardScaler()
         scaler3.fit(im[:, :, 2])
         tmp[:, :, 2] = scaler3.transform(im[:, :, 2])
-        # Z-NORMALIZE! How? Unravel the image and 
-        # take the mean and stddev? Probs. 
     return tmp 
 
 def generate_class_mask(f_polygons, f_image, box_size=0): 
@@ -83,12 +81,51 @@ def generate_class_mask(f_polygons, f_image, box_size=0):
 
     if n_instances > 1:
         mask = not_bee_mask(im, mask, n_instances=n_instances, box_size=box_size)
-        #mask[mask == -1] = 0
-        # mask[mask == -1] = 
-        # print(2*n_instances, "total training points")
-        return mask, im
+        return im, mask
     else:
         return None, None
+
+
+def make_bee_squares(f_polygons, f_image):
+    im = cv2.imread(f_image)
+    mask = np.ones((im.shape[0], im.shape[1]))*-1
+    im = normalize_image(im) 
+    with open(f_polygons, "r") as f:
+      js = json.load(f)
+    n_instances = 0
+    ofs = 20
+    for ll in js['labels']:
+        x = []
+        y = []
+        for i in ll['vertices']:
+            x.append(i['x'])
+            y.append(i['y'])
+        r, c = polygon(x, y, shape=im.shape) # row, column
+        mask[c, r] = 1
+        n_instances = len(r)
+        if n_instances > 1:
+            center_r = np.sum(r) // len(r)
+            center_c = np.sum(c) // len(c)
+            for center_r, center_c in zip(c, r):
+                s_im = im[center_c-ofs:center_c+ofs, center_r-ofs:center_r+ofs, :]
+                one_hot = np.zeros((s_im.shape[0], s_im.shape[1], 2))
+                one_hot[:, :, 0] = 0
+                one_hot[:, :, 1] = 1
+                x_rand = np.random.randint(0, im.shape[0])
+                y_rand = np.random.randint(0, im.shape[1])
+                neg_img = im[x_rand-ofs:x_rand+ofs, y_rand-ofs:y_rand+ofs,:] 
+                # this line was returning arrays of weird sizes.
+                dat = [s_im, neg_img]
+                one_hot_n = np.zeros((s_im.shape[0], s_im.shape[1], 2))
+                one_hot_n[:, :, 0] = 1
+                one_hot_n[:, :, 1] = 0
+                msk = [one_hot, one_hot_n]
+                if neg_img.shape[0] == 2*ofs and neg_img.shape[1] == 2*ofs:
+                    if s_im.shape[0] == 2*ofs and s_im.shape[1] == 2*ofs:
+                        for dats, msks in zip(dat, msk):
+                            yield dats, msks
+        else:
+            continue
 
 
 def generate_bees(f_polygons, f_image, kernel_size):
@@ -152,16 +189,12 @@ def make_one_hot(labels, n_classes):
 if __name__ == '__main__':
     path = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/'
  
+    nb = 0
+    b = 0
     for f in glob.glob(path + "*.json"):
-        print(f[-17:-13])
         jpg = f[:-13] + ".jpg"
-        mask, image = generate_class_mask(f, jpg)
-        print(image.shape)
-        break
-        if mask is not None:
-            mask[mask == -1] = np.nan
-            plt.title(os.path.basename(f))
-            plt.imshow(image)
-            plt.imshow(mask, alpha=0.8)
-            plt.show()
- 
+        image, mask = make_bee_mask(f, jpg)
+        if image is not None:
+            nb += len(np.where(mask[:, :, 0] == 1)[0])
+            b += len(np.where(mask[:, :, 1] == 1)[0])
+    print(b, nb, nb / b)
