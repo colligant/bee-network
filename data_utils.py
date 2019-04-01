@@ -14,7 +14,8 @@ def normalize_image(im):
     scaler2.fit(im[:, :, 1])
     tmp[:, :, 1] = scaler2.transform(im[:, :, 1])
     scaler3 = StandardScaler()
-    scaler3.fit(im[:, :, 2]) tmp[:, :, 2] = scaler3.transform(im[:, :, 2])
+    scaler3.fit(im[:, :, 2]) 
+    tmp[:, :, 2] = scaler3.transform(im[:, :, 2])
     # Z-NORMALIZE! How? Unravel the image and 
     # take the mean and stddev? Probs. 
     return tmp 
@@ -32,6 +33,7 @@ def generate_bees(f_polygons, f_image, kernel_size):
       js = json.load(f)
     not_bees = []
     bees = []
+    #print(js)
     for ll in js['labels']:
         if ll['label_class'] is not None:
             rr = ll['position']['x']
@@ -50,14 +52,6 @@ def generate_bees(f_polygons, f_image, kernel_size):
             cc = ll['position']['y']
             rr = int(rr)
             cc = int(cc)
-            # import matplotlib.pyplot as plt
-            # imm = cv2.imread(f_image)
-            # fig, axs = plt.subplots(ncols=2)
-            # axs[0].imshow(imm)
-            # axs[0].plot(rr, cc, 'ro')
-            # # THIS WAS WRONG!
-            # axs[1].imshow(imm[cc-ofs:cc+ofs+1,rr-ofs:rr+ofs+1, :])
-            # plt.show()
             try:
                 sub_img = im[cc-ofs:cc+ofs+1,rr-ofs:rr+ofs+1, :]  
                 #plt.imshow(sub_img)
@@ -99,3 +93,4 @@ if __name__ == '__main__':
     pass 
     path = '/home/thomas/bee-network/image-labelling-tool/images/'
     feat, lab = generate_labels_and_features(path, 101)
+    print(json.__version__)
