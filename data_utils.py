@@ -5,6 +5,7 @@ import glob
 import cv2 
 
 def normalize_image(im):
+    # Garbage!
     tmp = np.zeros((im.shape))
     mask = np.zeros((im.shape[0], im.shape[1]))
     scaler = StandardScaler()

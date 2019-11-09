@@ -16,6 +16,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import TensorBoard
 
 NO_DATA = 3
+
 def custom_objective(y_true, y_pred):
     '''I want to mask all values that 
        are not data, given a y_true 
@@ -78,7 +79,7 @@ def fcnn_model(image_shape, n_classes):
     model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
     model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
     model.add(tf.keras.layers.Conv2D(filters=64, kernel_size=3, padding='same', activation='relu'))
-    model.add(tf.keras.layers.Conv2D(filters=n_classes, kernel_size=2, padding='same',
+    model.add(tf.keras.layers.Conv2D(filters=n_classes, kernel_size=1, padding='same',
         activation='sigmoid')) # 1x1 convolutions for pixel-wise prediciton.
     # Take a look at the model summary
     return model
@@ -132,30 +133,24 @@ def preprocess_training_data(image, class_mask, n_classes=2):
     return in_img, in_class
 
 
-def generate(image_directory, box_size):
+def make_all_instances(image_directory, box_size):
     from random import shuffle
-    while True:
-        fnames = [f for f in glob(image_directory + "*.json")]
-        shuffle(fnames)
-        for f in fnames:
-            #shuffle this data
-            jpg = f[:-13] + ".jpg"
-            outa = []
-            outb = []
-            batch_size = 100
-            i = 0
-            for data, mask in make_bee_squares(f, jpg):
-                # X = np.expand_dims(input_image, axis=0)
-                # y = np.expand_dims(class_mask, axis=0)
-                if i < batch_size:
-                    outa.append(data)
-                    outb.append(mask)
-                    i += 1
-                if i == batch_size:
-                    break
-            if not len(outa):
-                continue
-            yield np.asarray(outa), np.asarray(outb)
+    fnames = [f for f in glob(image_directory + "*.json")]
+    bees = []
+    not_bees = []
+    ofs = 20
+    i = 0
+    for f in fnames:
+        jpg = f[:-13] + ".jpg"
+        bee, not_bee = make_bee_squares(f, jpg, ofs)
+        i += len(bee)
+        if i > 1000:
+            break
+        bees += bee
+        not_bees += not_bee
+    print(len(not_bees))
+    print(len(bees))
+    return bees, not_bees
 
 
 def create_model(image_shape, n_classes, learning_rate=1e-6):
@@ -194,24 +189,12 @@ def evaluate_image(image_path, model, th=0.1):
     out = np.reshape(out, (1080, 1920, 2))
     return out
 
+# def labels_and_features(bees, not_bees):
+#     for 
+
+
 if __name__ == '__main__':
     from sklearn.metrics import confusion_matrix
     train = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/'
     test = '/home/thomas/bee-network/for_bees/Blank VS Scented/B VS S Day 1/Frames JPG/ground_truth/'
-    shape = (None, None, 3)
-    box_size = 10 
-    model_path = 'models/fcnn_functional.h5'
-    epochs = 100 
-    lr = 1e-3
-    if os.path.isfile(model_path): 
-        model = train_model(train, test, lr, shape, box_size, epochs=epochs)
-        model.save(model_path)
-    else:
-        model = tf.keras.models.load_model(model_path,
-                custom_objects={'custom_objective':custom_objective})
-    
-    for f in glob(test + "*.jpg"):
-        out = evaluate_image(f, model)
-        plt.imshow(out[:, :, 1])
-        plt.colorbar()
-        plt.show()
+
