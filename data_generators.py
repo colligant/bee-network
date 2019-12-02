@@ -26,7 +26,7 @@ class DataGenerator(Sequence):
         labels = self.masks[self.batch_size*idx:self.batch_size*(idx+1)]
         images = self.images[self.batch_size*idx:self.batch_size*(idx+1)]
         images = [_load_image(f) for f in images]
-        labels = [_load_image(f) for f in labels]
+        labels = [np.round(_load_image(f)) for f in labels]
         if len(self.resize):
             for i in range(len(images)):
                 images[i] = resize(images[i], (0,0), fx=self.resize[0],
@@ -47,6 +47,10 @@ class DataGenerator(Sequence):
 
 
 if __name__ == '__main__':
+    import matplotlib.pyplot as plt
     dg = DataGenerator('train', 1, (0.25, 0.25))
-    print(len(dg))
+    for i, m in dg:
+        plt.imshow(np.squeeze(m))
+        plt.colorbar()
+        plt.show()
 
