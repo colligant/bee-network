@@ -1,0 +1,104 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+Adam	evaluate_generator.py	/^from tensorflow.keras.optimizers import Adam$/;"	i
+Adam	train_model.py	/^from tensorflow.keras.optimizers import Adam$/;"	i
+ArgumentParser	materialize_labels.py	/^from argparse import ArgumentParser$/;"	i
+Conv2D	evaluate_generator.py	/^from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D$/;"	i
+Conv2D	train_model.py	/^from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D$/;"	i
+DataGenerator	data_generators.py	/^class DataGenerator(Sequence):$/;"	c
+DataGenerator	evaluate_generator.py	/^from data_generators import DataGenerator$/;"	i
+DataGenerator	train_model.py	/^from data_generators import DataGenerator$/;"	i
+Input	evaluate_generator.py	/^from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D$/;"	i
+Input	train_model.py	/^from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D$/;"	i
+K	evaluate_generator.py	/^from tensorflow.keras import backend as K$/;"	i
+K	train_model.py	/^from tensorflow.keras import backend as K$/;"	i
+MaxPooling2D	evaluate_generator.py	/^from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D$/;"	i
+MaxPooling2D	train_model.py	/^from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D$/;"	i
+Model	evaluate_generator.py	/^from tensorflow.keras.models import Model$/;"	i
+Model	train_model.py	/^from tensorflow.keras.models import Model$/;"	i
+Sequence	data_generators.py	/^from tensorflow.keras.utils import Sequence$/;"	i
+TensorBoard	evaluate_generator.py	/^from tensorflow.keras.callbacks import TensorBoard$/;"	i
+TensorBoard	train_model.py	/^from tensorflow.keras.callbacks import TensorBoard$/;"	i
+UpSampling2D	evaluate_generator.py	/^from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D$/;"	i
+UpSampling2D	train_model.py	/^from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D$/;"	i
+__getitem__	data_generators.py	/^    def __getitem__(self, idx):$/;"	m	class:DataGenerator	file:
+__init__	data_generators.py	/^    def __init__(self, data_directory, batch_size, resize=()):$/;"	m	class:DataGenerator
+__len__	data_generators.py	/^    def __len__(self):$/;"	m	class:DataGenerator	file:
+_filter_jsons_and_jpgs	materialize_labels.py	/^def _filter_jsons_and_jpgs(jsons, jpgs):$/;"	f
+_load_image	data_generators.py	/^def _load_image(f, grayscale=False):$/;"	f
+ap	materialize_labels.py	/^    ap = ArgumentParser()$/;"	v
+args	materialize_labels.py	/^    args = ap.parse_args()$/;"	v
+basename	materialize_labels.py	/^from os.path import join, splitext, basename, isdir$/;"	i
+binary_focal_loss	train_model.py	/^def binary_focal_loss(gamma=2.0, alpha=0.25):$/;"	f
+binary_focal_loss_fixed	train_model.py	/^    def binary_focal_loss_fixed(y_true, y_pred):$/;"	f	function:binary_focal_loss
+copyfile	materialize_labels.py	/^from shutil import copyfile$/;"	i
+custom_objects	evaluate_generator.py	/^        custom_objects = {'binary_focal_loss_fixed':binary_focal_loss()}$/;"	v
+dg	data_generators.py	/^    dg = DataGenerator('train', 1, (0.25, 0.25))$/;"	v
+dice_coef	train_model.py	/^def dice_coef(y_true, y_pred, smooth=1):$/;"	f
+dice_coef_loss	train_model.py	/^def dice_coef_loss(y_true, y_pred):$/;"	f
+epochs	evaluate_generator.py	/^                epochs=30,$/;"	v
+exit	materialize_labels.py	/^from sys import stdout, exit$/;"	i
+glob	data_generators.py	/^from glob import glob$/;"	i
+glob	materialize_labels.py	/^from glob import glob$/;"	i
+imread	data_generators.py	/^from matplotlib.pyplot import imread$/;"	i
+imwrite	materialize_labels.py	/^from cv2 import imwrite$/;"	i
+indices	materialize_labels.py	/^    indices = np.arange(len(jsons))$/;"	v
+isdir	materialize_labels.py	/^from os.path import join, splitext, basename, isdir$/;"	i
+join	data_generators.py	/^from os.path import join$/;"	i
+join	materialize_labels.py	/^from os.path import join, splitext, basename, isdir$/;"	i
+jpgs	materialize_labels.py	/^    jpgs = np.asarray(jpgs)$/;"	v
+jpgs	materialize_labels.py	/^    jpgs = sorted(glob(join(args.json_jpg_dir, '*jpg')))$/;"	v
+jsons	materialize_labels.py	/^    jsons = np.asarray(jsons)$/;"	v
+jsons	materialize_labels.py	/^    jsons = sorted(glob(join(args.json_jpg_dir, '*json')))$/;"	v
+label_masks	materialize_labels.py	/^def label_masks(jpgs, jsons, out_directory):$/;"	f
+load	materialize_labels.py	/^from json import load$/;"	i
+loss	train_model.py	/^def loss(y_true, y_pred):$/;"	f
+make_label_mask	materialize_labels.py	/^def make_label_mask(json_obj, jpg_file):$/;"	f
+makedirs	materialize_labels.py	/^from os import makedirs$/;"	i
+matplotlib	data_generators.py	/^    import matplotlib.pyplot as plt$/;"	i
+matplotlib	evaluate_generator.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	materialize_labels.py	/^import matplotlib.pyplot as plt$/;"	i
+matplotlib	train_model.py	/^import matplotlib.pyplot as plt$/;"	i
+model	evaluate_generator.py	/^        model = tf.keras.models.load_model(model_path, custom_objects=custom_objects)$/;"	v
+model	evaluate_generator.py	/^    model = simple_fcnn((1080, 1920, 3))$/;"	v
+model_path	evaluate_generator.py	/^    model_path = 'focal_loss.h5'$/;"	v
+n_test	materialize_labels.py	/^    n_test = len(jsons) - n_train$/;"	v
+n_train	materialize_labels.py	/^    n_train = int(len(jsons) * args.split)$/;"	v
+np	data_generators.py	/^import numpy as np$/;"	i
+np	evaluate_generator.py	/^import numpy as np$/;"	i
+np	materialize_labels.py	/^import numpy as np$/;"	i
+np	train_model.py	/^import numpy as np$/;"	i
+on_epoch_end	data_generators.py	/^    def on_epoch_end(self):$/;"	m	class:DataGenerator
+os	evaluate_generator.py	/^import os$/;"	i
+os	train_model.py	/^import os$/;"	i
+plt	data_generators.py	/^    import matplotlib.pyplot as plt$/;"	i
+plt	evaluate_generator.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	materialize_labels.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	train_model.py	/^import matplotlib.pyplot as plt$/;"	i
+polygon	materialize_labels.py	/^from skimage.draw import polygon$/;"	i
+preds	evaluate_generator.py	/^        preds = np.squeeze(model.predict(i.astype(np.float16)))$/;"	v
+resize	data_generators.py	/^from cv2 import resize$/;"	i
+set_trace	materialize_labels.py	/^from pdb import set_trace$/;"	i
+shuffle	materialize_labels.py	/^from random import shuffle$/;"	i
+simple_fcnn	evaluate_generator.py	/^def simple_fcnn(image_shape):$/;"	f
+simple_fcnn	train_model.py	/^def simple_fcnn(image_shape):$/;"	f
+splitext	materialize_labels.py	/^from os.path import join, splitext, basename, isdir$/;"	i
+stdout	materialize_labels.py	/^from sys import stdout, exit$/;"	i
+tb	evaluate_generator.py	/^    tb = TensorBoard()$/;"	v
+test_generator	evaluate_generator.py	/^    test_generator = DataGenerator('test', 1, resize=(0.5, 0.5))$/;"	v
+test_generator	evaluate_generator.py	/^    test_generator = DataGenerator('test', 2)$/;"	v
+test_indices	materialize_labels.py	/^    test_indices = list(set(indices) - set(train_indices)) # very python3?$/;"	v
+test_jpgs	materialize_labels.py	/^    test_jpgs = jpgs[test_indices]$/;"	v
+test_jsons	materialize_labels.py	/^    test_jsons = jsons[test_indices]$/;"	v
+tf	evaluate_generator.py	/^import tensorflow as tf$/;"	i
+tf	train_model.py	/^import tensorflow as tf$/;"	i
+train_generator	evaluate_generator.py	/^    train_generator = DataGenerator('train', 2)$/;"	v
+train_indices	materialize_labels.py	/^    train_indices = np.random.choice(indices, n_train, replace=False)$/;"	v
+train_jpgs	materialize_labels.py	/^    train_jpgs = jpgs[train_indices]$/;"	v
+train_jsons	materialize_labels.py	/^    train_jsons = jsons[train_indices]$/;"	v
+use_multiprocessing	evaluate_generator.py	/^                use_multiprocessing=True,$/;"	v
+validation_data	evaluate_generator.py	/^                validation_data=test_generator,$/;"	v
