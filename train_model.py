@@ -3,14 +3,28 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
+from sys import stdout
 from tensorflow.keras.layers import (Input, Conv2D, MaxPooling2D, 
         UpSampling2D, Concatenate)
 from tensorflow.keras import backend as K
 from tensorflow.keras.callbacks import TensorBoard
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
+from sklearn.metrics import confusion_matrix
 
 from data_generators import DataGenerator
+
+def precision_and_recall_from_generator(generator, model, n_classes=2):
+    cmat = np.zeros((n_classes, n_classes))
+    for j, (i, m) in enumerate(test_generator):
+        stdout.write('{} / {}\r'.format(j, len(generator)))
+        preds = np.squeeze(model.predict(i.astype(np.float16)))
+        y_pred = np.round(preds).astype(np.uint)
+        y_true = np.squeeze(m).astype(np.uint)
+        cmat += confusion_matrix(y_true.ravel(), y_pred.ravel(), labels=[0, 1])
+    print()
+    return cmat
+
 
 def binary_focal_loss(gamma=2.0, alpha=0.25):
     """
@@ -42,23 +56,21 @@ def binary_focal_loss(gamma=2.0, alpha=0.25):
 
 
 def simple_fcnn(image_shape):
-    # gotchas that i worked through:
-    # padding='same'
-    # labels not having an extra dimension to 
-    # correspond to 
     inp = Input(image_shape)
-    c1 = Conv2D(8, 3, padding='same', activation='relu')(inp)
+    c1 = Conv2D(16, 3, padding='same', activation='relu')(inp)
+    c1 = Conv2D(32, 3, padding='same', activation='relu')(c1)
     m1 = MaxPooling2D()(c1)
-    c2 = Conv2D(16, 3, padding='same', activation='relu')(m1)
-    c3 = Conv2D(16, 3, padding='same', activation='relu')(c2)
+    c2 = Conv2D(64, 3, padding='same', activation='relu')(m1)
+    c3 = Conv2D(64, 3, padding='same', activation='relu')(c2)
     u2 = UpSampling2D()(c3)
-    concat = Concatenate()[c1, u2]
-    c4 = Conv2D(8, 3, padding='same', activation='relu')(concat)
+    concat = Concatenate()([c1, u2])
+    c4 = Conv2D(32, 3, padding='same', activation='relu')(concat)
+    c4 = Conv2D(16, 3, padding='same', activation='relu')(c4)
     c5 = Conv2D(1, 3, padding='same', activation='sigmoid')(c4)
     return Model(inputs=inp, outputs=c5)
 
 
-def loss(y_true, y_pred):
+def weighted_xen(y_true, y_pred):
     return tf.nn.weighted_cross_entropy_with_logits(y_true, y_pred,
             pos_weight=1.0)
 
@@ -79,19 +91,20 @@ def dice_coef_loss(y_true, y_pred):
 
 if __name__ == '__main__':
 
-    model = simple_fcnn((324, 576, 3))
+    model = simple_fcnn((540, 960, 3))
 
-    resize = (0.3, 0.3)
-    train_generator = DataGenerator('train', 2, resize=resize)
-    # test_generator = DataGenerator('test', 2, resize=resize)
+    resize = (0.5, 0.5)
+    train_generator = DataGenerator('train_data', 4, resize=resize)
+    test_generator = DataGenerator('test_data', 2, resize=resize)
     tb = TensorBoard()
     loss_func = binary_focal_loss()
-    model.compile(Adam(1e-3), loss='binary_crossentropy', metrics=['accuracy', tf.keras.metrics.MeanIoU(num_classes=2)])
-    model_path = 'models/test.h5'
+    model.compile(Adam(1e-3), loss=loss_func, metrics=['accuracy'])
+    model_path = 'models/half_image.h5'
     if not os.path.isfile(model_path):
         model.fit_generator(train_generator,
-                epochs=100,
-                verbose=0,
+                epochs=40,
+                #validation_data=test_generator,
+                verbose=1,
                 use_multiprocessing=True,
                 )
         model.save(model_path)
@@ -103,12 +116,17 @@ if __name__ == '__main__':
         model = tf.keras.models.load_model(model_path,
                 custom_objects=custom_objects)
 
-    test_generator = DataGenerator('test', 1, resize=resize)
-    for j, (i, m) in enumerate(test_generator):
-        fig, ax = plt.subplots(ncols=2)
-        ax[0].imshow(i[0])
-        preds = np.squeeze(model.predict(i.astype(np.float16)))
-        ax[1].imshow(preds)
-        plt.show()
-        if j > 5:
-            break
+    test_generator = DataGenerator('test_data', 1, resize=resize)
+    conf_mat = precision_and_recall_from_generator(test_generator, model)
+    print(conf_mat)
+    precision = conf_mat[1, 1] / (conf_mat[1, 0] + conf_mat[1, 1])
+    recall = conf_mat[1, 1] / (conf_mat[0, 1] + conf_mat[1, 1])
+    print('precision: {:.3f}, recall: {:.3f}'.format(precision, recall))
+    # for j, (i, m) in enumerate(test_generator):
+    #     fig, ax = plt.subplots(ncols=2)
+    #     ax[0].imshow(i[0])
+    #     preds = np.squeeze(model.predict(i.astype(np.float16)))
+    #     ax[1].imshow(np.round(preds))
+    #     plt.show()
+    #     if input('continue?') == 'N':
+    #         break
